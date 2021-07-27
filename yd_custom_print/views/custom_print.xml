@@ -100,7 +100,7 @@
             </field>
         </record>
 
-        <menuitem name="打印设置" id="custom_print_menu" parent="yd.menu_yd_root" sequence="1000" action="custom_print_act_window"/>
+     
 
     </data>
 </odoo>
