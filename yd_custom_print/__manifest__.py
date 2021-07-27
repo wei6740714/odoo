@@ -11,7 +11,7 @@
     """,
 
     'author': "make in china",
-    'website': "http://www.yidieshuzi.cn",
+    'website': "http://www.baidu.com",
 
     'category': '基础',
     'version': '0.1',
