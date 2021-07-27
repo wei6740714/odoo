@@ -3,15 +3,15 @@
     'name': "yd_custom_print",
 
     'summary': """
-        自定义打印
+        自定义打印,可以自己排版绘制打印的格式.666
         """,
 
     'description': """
-        自定义打印
+        自定义打印,可以自己排版绘制打印的格式.666
     """,
 
-    'author': "易蝶数字",
-    'website': "http://www.yidieshuzi.cn",
+    'author': "chinese",
+    'website': "http://www.baidu.com",
 
     'category': '基础',
     'version': '0.1',
