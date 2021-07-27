@@ -1,0 +1,8 @@
+<odoo>
+    <template id="assets_backend" name="yd_custom_print" inherit_id="web.assets_backend">
+        <xpath expr="." position="inside">
+            <script type="text/javascript" src="/yd_custom_print/static/src/js/action_tag.js"></script>
+            <script type="text/javascript" src="/yd_custom_print/static/src/js/web_custom_print.js"></script>
+        </xpath>
+    </template>
+</odoo>

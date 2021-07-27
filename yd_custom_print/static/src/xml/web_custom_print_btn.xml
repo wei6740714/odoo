@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<templates id="template" xml:space="preserve">
+<!--<t t-name="WebCustomPrintBtn">-->
+<!--    <div class="o_cp_sidebar btn-group btn-group-sm">-->
+<!--        <button class="btn btn-secondary custom_print_form" type="button" title="Custom Print">-->
+<!--            <i t-translation="off" class="fa fa-file-excel-o">自定义打印</i>-->
+<!--        </button>-->
+<!--    </div>-->
+<!--</t>-->
+<t t-name="WebCustomPrintBtn">
+            <div class="btn-group hidden-xs o_dropdown" style="margin-left:5px;">
+                <button id="custom_print_btn" class="oe_select_columns btn btn-info"
+                        data-toggle="dropdown" aria-expanded="false">
+                    <span/>
+
+                    自定义打印
+                    <span class="fa fa-toggle-down"/>
+                </button>
+                <ul id="show-print-item" class="dropdown-menu o_group_by_menu oe_dropdown_menu" role="menu"
+                    style="max-height:250px; overflow:auto;">
+                </ul>
+            </div>
+</t>
+
+    <t t-name="WebCustomPrintItem">
+        <t t-foreach="columns" t-as="column">
+            <li class="item_column">
+                <a><t t-esc="column"/></a>
+            </li>
+        </t>
+    </t>
+</templates>

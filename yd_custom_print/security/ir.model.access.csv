@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_custom_print_custom_print,yd_custom_print.custom_print,model_yd_custom_print_custom_print,,1,1,1,1
+access_custom_print_tree_field_needed,yd_custom_print.tree_field_needed,model_yd_custom_print_tree_field_needed,,1,1,1,1
+access_custom_print_header_field_needed,yd_custom_print.header_field_needed,model_yd_custom_print_header_field_needed,,1,1,1,1

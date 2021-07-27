@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+    <head>
+        <meta charset="UTF-8">
+        <title>打印模板设计器</title>
+        <link href="./css/hiprint.css" rel="stylesheet">
+        <link href="./css/print-lock.css" rel="stylesheet">
+        <link href="./bootstrap/bootstrap.min.css" rel="stylesheet">
+        <script src="./jquery-3.31.js"></script>
+        <script src="./bootstrap/bootstrap.min.js"></script>
+        <!-- hiprint 核心js-->
+        <script src="./hiprint.bundle.js"></script>
+        <!-- polyfill.min.js解决浏览器兼容性问题v6.26.0-->
+        <script src="./polyfill.min.js"></script>
+        <!-- 条形码生成组件-->
+        <script src="./plugins/JsBarcode.all.min.js"></script>
+        <!-- 二维码生成组件-->
+        <script src="./plugins/qrcode.js"></script>
+        <!-- 调用浏览器打印窗口helper类，可自行替换-->
+        <script src="./plugins/jquery.hiwprint.js"></script>
+        <script src="./plugins/jquery.minicolors.min.js"></script>
+        <!--  设计器模板元素  -->
+        <script src="./plugins/custom-etype-provider.js"></script>
+        <!--odoo远程调用        -->
+        <script src="./odoo_rpc.js"></script>
+        <script src="./util.js"></script>
+        <script>
+
+            $(function () {
+                var searchParams = new URLSearchParams(window.location.href.split('#')[1]);
+                var session_id = searchParams.get('session_id')
+                var action_type = searchParams.get('action_type')
+                var custom_model_id = searchParams.get('custom_model_id')
+                var print_model = searchParams.get('print_model')
+                var print_model_id = searchParams.get('print_model_id')
+                var related_field = searchParams.get('related_field')
+                window.odoo_data = {
+                    'session_id': session_id,
+                    'action_type': action_type,
+                    'custom_model_id': custom_model_id,
+                    'print_model': print_model,
+                    'print_model_id': print_model_id,
+                    'related_field': related_field,
+                }
+                var comments = [
+                    '二维码以及条形码均采用svg格式打印。不同打印机打印不会造成失真。图片打印：不同DPI打印可能会导致失真.',
+                    '所有打印元素都可已拖拽的方式来改变元素大小.',
+                    '单击元素，右侧可自定义元素属性.',
+                    '可以配置各属性的默认值.',
+                    "自定义表格：用户可左键选中表头，右键查看可操作项，操作类似Excel，双击表头单元格可进行编辑,必须按回车键进行确定。内容：title#field.",
+                    '非表格字段:在右侧属性中进行填写,不用#号,直接填写字段名称,例如:field.',
+                    '表头列大小可拖动.',
+                    '红色区域可拖动.',
+                    '长文本会自动分页.',
+                    '页眉线已上。页尾下以下每页都会重复打印.',
+                    '列表的字段名必须为table.',
+                ]
+                $used_comments = $('#use-comments')
+                for (var key in comments) {
+                    var val = comments[key];
+
+                    let $li = $('<li class="list-group-item"></li>')
+                    let index = Number(key) + 1
+                    $li.text(index + '.' + val)
+                    let color = Number(key) % 2 === 0 ? 'green' : 'blue'
+                    $li.css({"color": color});
+                    $used_comments.append($li)
+                }
+
+                var header_item_click = function () {
+                    let $title_textarea = $($("#PrintElementOptionSetting textarea[placeholder='请输入标题']")[0])
+                    let $field_input = $($("#PrintElementOptionSetting input[placeholder='请输入字段名']")[0])
+
+                    if (!$title_textarea.length || !$field_input.length) {
+                        return
+                    }
+                    let $item = $(this)
+                    // let arr=$item.text().split(":")
+                    let title = $item.text()
+                    let field = $item.attr('field_en')
+                    $title_textarea.val(title)
+                    $title_textarea.trigger('blur')
+                    $field_input.val(field)
+                    $field_input.trigger('blur')
+                }
+
+                var tree_item_click = function () {
+
+                    let selected_header_td = $(".hiprint-printElement-table thead tr .selected")[0]
+
+                    let $selected_header_td = $(selected_header_td)
+
+                    if (!$selected_header_td.length) {
+                        return
+                    }
+                    $selected_header_td.trigger('dblclick')
+                    let $input_val = $($selected_header_td.children('input'))
+
+                    let $item = $(this)
+                    $input_val.val($item.text() + '#' + $item.attr('field_en'))
+
+
+                    let e = jQuery.Event("keydown");//模拟一个键盘事件
+                    e.keyCode = 13;//keyCode=13是回车
+                    $input_val.trigger(e);//模拟页码框按下回车
+
+                    let $field_input = $($("#PrintElementOptionSetting input[placeholder='请输入字段名']")[0])
+                    $field_input.val('table')//设置列表默认字段名为table
+                    $field_input.trigger('blur')
+                }
+
+                $('#my_temp').on('click', header_item_click)
+                odoo_rpc({
+                    model: 'yd_custom_print.custom_print',
+                    method: 'api_init_get_field_data',
+                    args: [],
+                    kwargs: {'odoo_data':window.odoo_data},
+                    context:{'lang': 'zh_CN',}
+                }).then(function (result) {
+                    header_data = result['header_data']
+                    tree_data = result['tree_data']
+
+                    $option_header_fields = $('#odoo-option-header-fields')
+                    for (let key in header_data) {
+                        let val = header_data[key];
+
+                        let $item = $('<button class="list-group-item"></button>')
+                        let field_en = key
+                        let field_cn = val
+                        $item.text(field_cn)
+                        $item.attr({'field_en': field_en})
+                        $item.on("click", header_item_click);
+                        $option_header_fields.append($item)
+
+                    }
+                    $option_table_fields = $('#odoo-option-table-fields')
+                    for (let key in tree_data) {
+                        let val = tree_data[key];
+
+                        let $item = $('<button class="list-group-item"></button>')
+                        let field_en = key
+                        let field_cn = val
+                        $item.text(field_cn)
+                        $item.attr({'field_en': field_en})
+                        $item.on("click", tree_item_click);
+                        $option_table_fields.append($item)
+
+                    }
+
+                });
+
+
+            })
+
+        </script>
+
+
+    </head>
+
+    <body>
+        <layout class="layout hinnn-layout hinnn-layout-has-sider height-100-per" style="background:#fff;">
+            <content class="hinnn-layout-content" style="border-left:1px solid #e8e8e8;">
+                <div class="container-fluid height-100-per print-content">
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <div class="row">
+                                <div class="col-sm-3 col-md-2" style="padding-right:0px;">
+                                    <div class="rect-printElement-types hiprintEpContainer">
+                                        <ul class="hiprint-printElement-type">
+                                            <h3>图形绘制</h3>
+                                            <li>
+
+                                                <button class="list-group-item" style="background-color:#d9edf7;"
+                                                        id="drag-drop-list-btn">拖拽列表</button>
+                                                <ul id="drag-drop-list" style="display:none;">
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.text" style="">
+                                                            <span class="glyphicon glyphicon-text-width"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">文本</span>
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.image" style="">
+                                                            <span class="glyphicon glyphicon-picture"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">图片</span>
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.longText">
+                                                            <span class="glyphicon glyphicon-subscript"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">长文</span>
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.tableCustom"
+                                                           style="">
+                                                            <span class="glyphicon glyphicon-th"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">表格</span>
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.html">
+                                                            <span class="glyphicon glyphicon-header"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">html</span>
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                            <li>
+                                                <button class="list-group-item" style="background-color:#d9edf7;"
+                                                        id="assist-list-btn">辅助列表</button>
+                                                <ul id="assist-list" style="display: none;">
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.hline" style="">
+                                                            <span class="glyphicon glyphicon-resize-horizontal"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">横线</span>
+                                                        </a>
+                                                    </li>
+
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.vline" style="">
+                                                            <span class="glyphicon glyphicon-resize-vertical"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">竖线</span>
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.rect">
+                                                            <span class="glyphicon glyphicon-unchecked"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">矩形</span>
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="ep-draggable-item" tid="testModule.oval">
+                                                            <span class="glyphicon glyphicon-record"
+                                                                  aria-hidden="true"></span>
+                                                            <span class="glyphicon-class">椭圆</span>
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+
+                                        <h3 style="clear:both;">字段选择</h3>
+                                        <button class="list-group-item" style="background-color:#d9edf7;"
+                                                id="odoo-option-header-fields-btn">表头可选字段</button>
+                                        <ul id='odoo-option-header-fields' style="display: none;"
+                                            class="hiprint-printElement-type">
+                                        </ul>
+                                        <button class="list-group-item" style="background-color:#d9edf7;"
+                                                id="odoo-option-table-fields-btn">列表可选字段</button>
+                                        <ul id='odoo-option-table-fields' style="display: none;"
+                                            class="hiprint-printElement-type">
+                                        </ul>
+                                        <button class="list-group-item" style="background-color:#d9edf7;"
+                                                id="use-comments-btn">使用说明</button>
+                                        <ul id='use-comments' style="display:none;" class="hiprint-printElement-type">
+                                        </ul>
+                                    </div>
+
+                                </div>
+                                <div class="col-sm-7 col-md-8">
+                                    <div class="hiprint-toolbar" style="margin-top:15px;">
+                                        <ul>
+                                            <li><a class="hiprint-toolbar-item paper_format" onclick="setPaper('A3')">A3</a></li>
+                                            <li><a class="hiprint-toolbar-item paper_format" onclick="setPaper('A4')">A4</a></li>
+                                            <li><a class="hiprint-toolbar-item paper_format" onclick="setPaper('A5')">A5</a></li>
+                                            <li><a class="hiprint-toolbar-item paper_format" onclick="setPaper('B3')">B3</a></li>
+                                            <li><a class="hiprint-toolbar-item paper_format" onclick="setPaper('B4')">B4</a></li>
+                                            <li><a class="hiprint-toolbar-item paper_format" onclick="setPaper('B5')">B5</a></li>
+
+                                            <li><a class="hiprint-toolbar-item"><input type="text" id="customWidth"
+                                                                                       style="width: 50px;height: 19px;border: 0px;"
+                                                                                       placeholder="宽/mm"/></a></li>
+                                            <li><a class="hiprint-toolbar-item"><input type="text" id="customHeight"
+                                                                                       style="width: 50px;height: 19px;border: 0px;"
+                                                                                       placeholder="高/mm"/></a></li>
+
+                                            <li><a class="hiprint-toolbar-item" id="custom_shape" style="display: none"
+                                                   onclick="setPaper($('#customWidth').val(),$('#customHeight').val())">
+                                                自定义</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="rotatePaper()">旋转</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="clearTemplate()">清空</a></li>
+                                       </ul>
+                                        <ul>
+                                            <li>
+                                                <a class="btn hiprint-toolbar-item "
+                                                   style="color: #fff;background-color: #d9534f;border-color: #d43f3a;"
+                                                   id="A4_preview">快速预览</a>
+                                            </li>
+                                            <li>
+                                                <a id="A4_directPrint" class="btn hiprint-toolbar-item "
+                                                   style="color: #fff;background-color: #d9534f;border-color: #d43f3a;">
+                                                    打印</a>
+                                            </li>
+                                            <li>
+                                                <a id="ReadData" class="btn hiprint-toolbar-item "
+                                                   style="color: #fff;background-color: yellowgreen;border-color: #d43f3a;">
+                                                    恢复模板</a>
+                                            </li>
+                                            <li>
+                                                <a id="SaveData" class="btn hiprint-toolbar-item "
+                                                   style="color: #fff;background-color: green;border-color: #d43f3a;">
+                                                    保存模板</a>
+                                            </li>
+                                            <li>
+                                                <a onclick="window.history.back()" class="btn hiprint-toolbar-item "
+                                                   style="color: #fff;background-color: #0DAC9E;border-color: #d43f3a;">
+                                                    返回</a>
+                                            </li>
+
+
+                                        </ul>
+                                        <div style="clear:both;"></div>
+                                    </div>
+                                    <div id="hiprint-printTemplate" class="hiprint-printTemplate index-cav"
+                                         style="padding-top: 20px;overflow: auto;padding-left: 20px;height: 700px;">
+
+                                    </div>
+                                    <div style="padding-top:15px;">
+                                        <button type="button" class="btn btn-primary" id="A4_getJson_toTextarea">
+                                            生成json到textarea</button>
+                                    </div>
+                                    <div class="hinnn-callout hinnn-callout-danger">
+                                        <p><code>可视化</code>结果以Json的形式存在，用户可以<code>编辑Json</code>实现特殊化操作，如：数据<code>
+                                            formatter</code>，<code>文本变色</code>,单元格<code>改变背景</code>等。</p>
+                                    </div>
+                                    <textarea class="form-control" rows="10" id="A4_textarea_json"></textarea>
+
+                                    <div style="padding:15px 0;">
+                                        <button type="button" class="btn btn-primary" id="reverse">
+                                            通过json反向生成到模板</button>
+                                    </div>
+                                    <textarea class="form-control" rows="10" id="A4_getJson_template"></textarea>
+
+
+                                </div>
+                                <div class="col-sm-2 col-md-2 container height-100-per">
+                                    <div class="row">
+                                        <div class="col-sm-12">
+                                            <div id="PrintElementOptionSetting" style="margin-top:10px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </content>
+        </layout>
+        <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+            <div class="modal-dialog modal-lg" role="document" style="width: 825px;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                                aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title" id="myModalLabel">打印预览</h4>
+                    </div>
+
+                    <div class="modal-body">
+                        <button type="button" class="btn btn-danger" id="A4_printByHtml">打印</button>
+                        <div class="prevViewDiv"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="./custom_test/custom-etype-provider.js"></script>
+        <script src="./custom_test/custom-print-json.js"></script>
+        <script src="./custom_test/print-data.js"></script>
+        <script>
+
+            $(function () {
+
+                $('body').show()
+
+                //
+                hiprint.init({
+                    providers: [new customElementTypeProvider()]
+                });
+                // hiprint.init();
+                //设置左侧拖拽事件
+                hiprint.PrintElementTypeManager.buildByHtml($('.ep-draggable-item'));
+
+                hiprintTemplate = new hiprint.PrintTemplate({
+                    template: {
+                        "panels": [{
+                            "index": 0,
+                            "height": 297,
+                            "width": 210,
+                            "paperHeader": 45,
+                            "paperFooter": 780,
+                            "paperNumberLeft": 565,
+                            "paperNumberTop": 819,
+                            "rotate": true
+                        }]
+                    },
+                    settingContainer: '#PrintElementOptionSetting',
+                    paginationContainer: '.hiprint-printPagination'
+                });
+                //打印设计
+                hiprintTemplate.design('#hiprint-printTemplate');
+
+
+                $('#reverse').click(function () {
+
+                    $('.panel-index-0').remove()
+                    let arr = JSON.parse($('#A4_getJson_template').val())
+                    console.info(typeof arr1)
+                    hiprintTemplate = new hiprint.PrintTemplate({
+                        template: arr,
+                        settingContainer: '#PrintElementOptionSetting',
+                        paginationContainer: '.hiprint-printPagination'
+                    });
+                    hiprintTemplate.design('#hiprint-printTemplate');
+                });
+
+                $('#customWidth').blur(function () {
+                    $('#custom_shape').trigger('click')
+                })
+                $('#customHeight').blur(function () {
+                    $('#custom_shape').trigger('click')
+                })
+
+                $('#A4_preview').click(function () {
+                    $('#myModal .modal-body .prevViewDiv').html(hiprintTemplate.getHtml({}))
+                    $('#myModal').modal('show')
+                    // window.odoo_data['print_model_id'] = 1
+                    // window.odoo_data['print_model'] = 'yd_stock_out_in.picking_sale_out'
+                    // window.odoo_data['action_type'] = 'print'
+                    // odoo_rpc({
+                    //     model: 'yd_custom_print.custom_print',
+                    //     method: 'api_read_print_need_json_data',
+                    //     args: [window.odoo_data],
+                    //     kwargs: {}
+                    // }).then(function (result) {
+                    //
+                    //     $('#myModal .modal-body .prevViewDiv').html(hiprintTemplate.getHtml(result))
+                    //     $('#myModal').modal('show')
+                    //
+                    // });
+
+                });
+                $('#A4_directPrint').click(function () {
+                    hiprintTemplate.print({});
+                    // window.odoo_data['print_model_id'] = 1
+                    // window.odoo_data['print_model'] = 'yd_stock_out_in.picking_sale_out'
+                    // window.odoo_data['action_type'] = 'print'
+                    // odoo_rpc({
+                    //     model: 'yd_custom_print.custom_print',
+                    //     method: 'api_read_print_need_json_data',
+                    //     args: [window.odoo_data],
+                    //     kwargs: {}
+                    // }).then(function (result) {
+                    //     hiprintTemplate.printByHtml(hiprintTemplate.getHtml(result));
+                    //
+                    // });
+                });
+                $('#A4_printByHtml').click(function () {
+                    hiprintTemplate.printByHtml($('#myModal .modal-body .prevViewDiv'));
+                })
+                $('#A4_getJson_toTextarea').click(function () {
+                    $('#A4_textarea_json').html(JSON.stringify(hiprintTemplate.getJson()))
+                })
+                $('#A4_getHtml_toTextarea').click(function () {
+                    $('#A4_textarea_html').val(hiprintTemplate.getHtml()[0].outerHTML)
+                })
+
+                $('#SaveData').click(function () {
+                    json_data = JSON.stringify(hiprintTemplate.getJson())
+                    odoo_rpc({
+                        model: 'yd_custom_print.custom_print',
+                        method: 'api_save_json_data',
+                        args: [],
+                        kwargs: {odoo_data:window.odoo_data,save_data:json_data}
+                    }).then(function (result) {
+                        console.log(result)
+                    })
+
+                });
+                $('#ReadData').click(function () {
+                    odoo_rpc({
+                        model: 'yd_custom_print.custom_print',
+                        method: 'api_read_json_data',
+                        args: [window.odoo_data],
+                        kwargs: {}
+                    }).then(function (result) {
+
+                        $('.panel-index-0').remove()
+                        let arr = JSON.parse(result['saved_data'])
+                        hiprintTemplate = new hiprint.PrintTemplate({
+                            template: arr,
+                            settingContainer: '#PrintElementOptionSetting',
+                            paginationContainer: '.hiprint-printPagination'
+                        });
+                        hiprintTemplate.design('#hiprint-printTemplate');
+                    })
+                });
+                $('#drag-drop-list-btn').click(function () {
+                    $("#drag-drop-list").toggle(500);
+                })
+                $('#assist-list-btn').click(function () {
+                    $("#assist-list").toggle(500);
+                })
+                $('#odoo-option-header-fields-btn').click(function () {
+                    $("#odoo-option-header-fields").toggle(500);
+                })
+                $('#odoo-option-table-fields-btn').click(function () {
+                    $("#odoo-option-table-fields").toggle(500);
+                })
+                $('#use-comments-btn').click(function () {
+                    $("#use-comments").toggle(200);
+                })
+
+                setTimeout(function () {
+                    $('#ReadData').trigger('click')
+                })
+            });
+
+            //调整纸张
+            var setPaper = function (paperTypeOrWidth, height) {
+
+                $cur=$(event.currentTarget)
+                $cur.css({"color":"green",'border-color':"green"})
+                $(".paper_format").each(function(){
+                    if($cur.text()!==$(this).text()){
+                        $(this).css({"color":"#337ab7",'border-color':"#ddd"});
+                    }
+                  });
+                hiprintTemplate.setPaper(paperTypeOrWidth, height);
+                $('#customWidth').val(hiprintTemplate.printPanels[0].width)
+                $('#customHeight').val(hiprintTemplate.printPanels[0].height)
+
+            }
+
+            //旋转
+            var rotatePaper = function () {
+                hiprintTemplate.rotatePaper();
+            }
+            var clearTemplate = function () {
+                hiprintTemplate.clear();
+            }
+
+            $(window).keydown(function (event) {
+                if (event.keyCode == 13) {
+                    $('.hiprint-option-item-submitBtn').click();
+                }
+                if (event.keyCode == 46) {
+                    $('.hiprint-option-item-deleteBtn').click();
+                }
+            });
+
+            $('body').on('blur', 'input,textarea', function () {
+
+                $('.hiprint-option-item-submitBtn').click();
+            })
+        </script>
+    </body>
+
+</html>

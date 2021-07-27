@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <meta charset="UTF-8">
+        <title>打印模板设计器</title>
+        <link href="./css/hiprint.css" rel="stylesheet">
+        <link href="./css/print-lock.css" rel="stylesheet">
+        <link href="./bootstrap/bootstrap.min.css" rel="stylesheet">
+        <script src="./jquery-3.31.js"></script>
+        <script src="./bootstrap/bootstrap.min.js"></script>
+        <!-- hiprint 核心js-->
+        <script src="./hiprint.bundle.js"></script>
+        <!-- polyfill.min.js解决浏览器兼容性问题v6.26.0-->
+        <script src="./polyfill.min.js"></script>
+        <!-- 条形码生成组件-->
+        <script src="./plugins/JsBarcode.all.min.js"></script>
+        <!-- 二维码生成组件-->
+        <script src="./plugins/qrcode.js"></script>
+        <!-- 调用浏览器打印窗口helper类，可自行替换-->
+        <script src="./plugins/jquery.hiwprint.js"></script>
+        <script src="./plugins/jquery.minicolors.min.js"></script>
+        <!--  设计器模板元素  -->
+        <script src="./plugins/custom-etype-provider.js"></script>
+        <!--odoo远程调用        -->
+        <script src="./odoo_rpc.js"></script>
+        <script>
+
+            $(function () {
+
+                // document.documentElement.style.overflowY = "hidden"
+                var searchParams = new URLSearchParams(window.location.href.split('#')[1]);
+                var session_id = searchParams.get('session_id')
+                var action_type = searchParams.get('action_type')
+                var custom_model_name = searchParams.get('custom_model_name')
+                var custom_model_id = searchParams.get('custom_model_id')
+                var print_model = searchParams.get('print_model')
+                var print_model_id = searchParams.get('print_model_id')
+                var related_field = searchParams.get('related_field')
+                window.odoo_data = {
+                    'session_id': session_id,
+                    'action_type': action_type,
+                    'custom_model_id': custom_model_id,
+                    'print_model': print_model,
+                    'print_model_id': print_model_id,
+                    'related_field': related_field,
+                    'custom_model_name':custom_model_name,
+                }
+
+
+                //获得初始模板
+                odoo_rpc({
+                    model: 'yd_custom_print.custom_print',
+                    method: 'api_read_print_default_json_data',
+                    args: [window.odoo_data],
+                    kwargs: {}
+                }).then(function (result) {
+                    debugger
+                    $('.panel-index-0').remove()
+                    let arr = JSON.parse(result['saved_data'])
+                    window.hiprintTemplate = new hiprint.PrintTemplate({
+                        template: arr,
+                        settingContainer: '#PrintElementOptionSetting',
+                        paginationContainer: '.hiprint-printPagination'
+                    });
+                    window.hiprintTemplate.design('#hiprint-printTemplate');
+
+                    // $('#myModal .modal-body .prevViewDiv').html(window.hiprintTemplate.getHtml(result))
+                })
+
+                odoo_rpc({
+                    model: 'yd_custom_print.custom_print',
+                    method: 'api_read_print_need_json_data',
+                    args: [window.odoo_data],
+                    kwargs: {}
+                }).then(function (result) {
+                    $('#myModal .modal-body .prevViewDiv').html(window.hiprintTemplate.getHtml(result))
+                });
+            })
+        </script>
+
+        <style>
+            .hiprint-toolbar {
+                display: none;
+            }
+
+            #hiprint-printTemplate {
+                display: none;
+            }
+
+        </style>
+
+    </head>
+    <body>
+        <layout class="layout hinnn-layout hinnn-layout-has-sider height-100-per" style="background:#fff;">
+            <content class="hinnn-layout-content" style="border-left:1px solid #e8e8e8;">
+                <div class="container-fluid height-100-per print-content">
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <div class="row">
+                                <div class="col-sm-3 col-md-2" style="padding-right:0px;">
+                                </div>
+
+                                <div class="col-sm-7 col-md-8">
+                                    <div class="hiprint-toolbar" style="margin-top:15px;">
+                                        <ul>
+                                            <li><a class="hiprint-toolbar-item" onclick="setPaper('A3')">A3</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="setPaper('A4')">A4</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="setPaper('A5')">A5</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="setPaper('B3')">B3</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="setPaper('B4')">B4</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="setPaper('B5')">B5</a></li>
+
+                                            <li><a class="hiprint-toolbar-item"><input type="text" id="customWidth"
+                                                                                       style="width: 50px;height: 19px;border: 0px;"
+                                                                                       placeholder="宽/mm"/></a></li>
+                                            <li><a class="hiprint-toolbar-item"><input type="text" id="customHeight"
+                                                                                       style="width: 50px;height: 19px;border: 0px;"
+                                                                                       placeholder="高/mm"/></a></li>
+
+                                            <li><a class="hiprint-toolbar-item"
+                                                   onclick="setPaper($('#customWidth').val(),$('#customHeight').val())">
+                                                自定义</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="rotatePaper()">旋转</a></li>
+                                            <li><a class="hiprint-toolbar-item" onclick="clearTemplate()">清空</a></li>
+
+                                            <li>
+                                                <a class="btn hiprint-toolbar-item "
+                                                   style="color: #fff;background-color: #d9534f;border-color: #d43f3a;"
+                                                   id="A4_preview">快速预览</a>
+                                            </li>
+                                            <li>
+                                                <a id="A4_directPrint" class="btn hiprint-toolbar-item "
+                                                   style="color: #fff;background-color: #d9534f;border-color: #d43f3a;">
+                                                    打印</a>
+                                            </li>
+                                            <li>
+                                                <a id="ReadData" class="btn hiprint-toolbar-item "
+                                                   style="color: #fff;background-color: green;border-color: #d43f3a;">
+                                                    恢复模板</a>
+                                            </li>
+                                        </ul>
+                                        <div style="clear:both;"></div>
+                                    </div>
+                                    <div id="hiprint-printTemplate" class="hiprint-printTemplate index-cav"
+                                         style="padding-top: 20px;overflow: auto;padding-left: 20px;height: auto;">
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </content>
+        </layout>
+        <div id="myModal" tabindex="-1">
+            <div role="document" style="width: 100%;height:100%;">
+                <div>
+                    <div class="modal-header">
+                        <button type="button" class="btn btn-danger" id="A4_printByHtml">打印</button>
+                        <button type="button" class="btn btn-info" id="Go_back">返回</button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="prevViewDiv">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <!--                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>-->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="./custom_test/custom-etype-provider.js"></script>
+        <script src="./custom_test/custom-print-json.js"></script>
+        <script src="./custom_test/print-data.js"></script>
+        <script>
+
+            $(function () {
+
+                // $('#A4_printByHtml').click(function () {
+                //     window.hiprintTemplate.printByHtml($('#myModal .modal-body .prevViewDiv'));
+                // })
+                $('#A4_printByHtml').click(function () {
+                    window.odoo_data['print_model_id'] = 1
+                    window.odoo_data['print_model'] = 'yd_stock_out_in.picking_sale_out'
+                    window.odoo_data['action_type'] = 'print'
+                    odoo_rpc({
+                        model: 'yd_custom_print.custom_print',
+                        method: 'api_read_print_need_json_data',
+                        args: [window.odoo_data],
+                        kwargs: {}
+                    }).then(function (result) {
+                        window.hiprintTemplate.printByHtml(window.hiprintTemplate.getHtml(result));
+
+                    });
+                });
+                $('#Go_back').click(function () {
+                    window.history.back();
+                });
+
+            });
+
+
+        </script>
+    </body>
+</html>
