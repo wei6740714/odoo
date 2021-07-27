@@ -13,7 +13,7 @@
     'author': "chinese",
     'website': "http://www.baidu.com",
 
-    'category': '基础',
+    'category': 'All',
     'version': '0.1',
 
     # any module necessary for this one to work correctly
