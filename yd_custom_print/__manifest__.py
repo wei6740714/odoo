@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 {
-    'name': "custom print",
+    'name': "Custom Pint Designer,
 
     'summary': """
         自定义打印,可以自己排版绘制打印的格式.666
