@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 {
-    'name': "yd_custom_print",
+    'name': "custom print",
 
     'summary': """
         自定义打印,可以自己排版绘制打印的格式.666
