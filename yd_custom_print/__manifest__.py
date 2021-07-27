@@ -3,14 +3,14 @@
     'name': "yd_custom_print",
 
     'summary': """
-        自定义打印
+        可以实现非常好的自定义打印,不用再自己创建表单了.
         """,
 
     'description': """
-        自定义打印
+        可以实现非常好的自定义打印,不用再自己创建表单了.
     """,
 
-    'author': "易蝶数字",
+    'author': "make in china",
     'website': "http://www.yidieshuzi.cn",
 
     'category': '基础',
