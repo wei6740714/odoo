@@ -10,7 +10,7 @@
         自定义打印,可以自己排版绘制打印的格式.666
     """,
 
-    'author': "chinese",
+    'author': "316015009@qq.com",
     'website': "http://www.baidu.com",
 
     'category': 'All',
