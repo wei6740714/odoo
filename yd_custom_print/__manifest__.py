@@ -11,7 +11,7 @@
     """,
 
     'author': "316015009@qq.com",
-    'website': "http://www.baidu.com",
+    'website': "316015009@qq.com",
 
     'category': 'All',
     'version': '0.1',
